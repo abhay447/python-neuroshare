@@ -1,10 +1,20 @@
 language: python
 
-env:
+virtualenv:
   system_site_packages: true
+
+env:
   global:
     - CC=gcc-4.8
     - CXX=g++-4.8
+
+matrix:
+  include:
+  - python: "2.7"
+    env: COVERALLS=1
+  - python: "3.2"
+    env: COVERALLS=0
+
 
 addons:
   apt:
@@ -13,13 +23,6 @@ addons:
     packages:
       - g++-4.8
       - python-dev
-
-matrix:
-  include:
-    - python: "2.7"
-      env: COVERALLS=1
-    - python: "3.2"
-      env: COVERALLS=0
 
 
 install:
@@ -33,3 +36,6 @@ script:
 
 after_success:
 - if [ $COVERALLS = 1 ]; then coveralls; fi;
+
+notifications: 
+  email: false
