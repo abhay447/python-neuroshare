@@ -20,7 +20,6 @@
  */
 
 #include <Python.h>
-#include "capsulethunk.h"
 
 //we want only fresh stuff
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
@@ -378,7 +377,7 @@ library_open (PyObject *self, PyObject *args, PyObject *kwds)
   return lib_handle;
 }
 
-
+/************* python3 function redefinition*********/ 
 #if PY_MAJOR_VERSION >= 3
 #define PyExc_StandardError PyExc_Exception
 #define PyCObject_Check(capsule) (PyCapsule_CheckExact(capsule))
@@ -1299,7 +1298,7 @@ PyMODINIT_FUNC
 init_capi(void)
 {
   PyObject *module;
-  
+/************* python3 module import*********/ 
   #if PY_MAJOR_VERSION >= 3
   static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
