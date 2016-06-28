@@ -83,18 +83,19 @@ uint8_from_data (void *data, size_t data_len)
   
   if (data_len == 1)
     {
-      uint8 *u8 = data;
-      ret = *u8;
+      memcpy (&ret, data, 1);
     }
   else if (data_len == 2)
     {
-      ret = *(uint8 *) data;
+      uint16 u16;
+      memcpy (&u16, data, 2);
+      ret = (uint8) u16;
     }
   else if (data_len == 4)
     {
-      uint32 *u32;
-      u32 = (uint32 *) data;
-      ret =  (uint8) *u32;
+      uint32 u32;
+      memcpy (&u32, data, 4);
+      ret = (uint8) u32;
     }
   else
     {
@@ -111,18 +112,19 @@ uint16_from_data (void *data, size_t data_len)
   
   if (data_len == 1)
     {
-      uint8 *u8 = data;
-      ret = (uint16) *u8;
+      uint8 u8;
+      memcpy (&u8, data, 1);
+      ret = (uint16) u8;
     }
   else if (data_len == 2)
     {
-      ret = *(uint16 *) data;
+      memcpy (&ret, data, 2);
     }
   else if (data_len == 4)
     {
-      uint32 *u32;
-      u32 = (uint32 *) data;
-      ret =  (uint16) *u32;
+      uint32 u32;
+      memcpy (&u32, data, 4);
+      ret =  (uint16) u32;
     }
   else
     {
@@ -135,22 +137,23 @@ uint16_from_data (void *data, size_t data_len)
 static uint32
 uint32_from_data (void *data, size_t data_len)
 {
-  uint16 ret;
+  uint32 ret;
   
   if (data_len == 1)
     {
-      uint8 *u8 = data;
-      ret = (uint32) *u8;
+      uint8 u8;
+      memcpy (&u8, data, 1);
+      ret = (uint32) u8;
     }
   else if (data_len == 2)
     {
-      uint16 *u16;
-      u16 = (uint16 *) data;
-      ret =  (uint32) *u16;
+      uint16 u16;
+      memcpy (&u16, data, 2);
+      ret =  (uint32) u16;
     }
   else if (data_len == 4)
     {
-      ret = *(uint32 *) data;
+      memcpy (&ret, data, 4);
     }
   else
     {
@@ -368,22 +371,16 @@ library_open (PyObject *self, PyObject *args, PyObject *kwds)
       dl_unload_library (lib);
       return NULL;
     }
-  #if PY_MAJOR_VERSION >= 3
-	lib_handle = PyCapsule_New (lib,"capi", NULL);
-  #else
-    lib_handle = PyCObject_FromVoidPtr (lib, NULL);
-  #endif
+
+  lib_handle = PyCapsule_New (lib, "capi", NULL);
 
   return lib_handle;
 }
 
 /************* python3 function redefinition*********/ 
 #if PY_MAJOR_VERSION >= 3
-#define PyExc_StandardError PyExc_Exception
-#define PyCObject_Check(capsule) (PyCapsule_CheckExact(capsule))
-#define PyCObject_AsVoidPtr(capsule) (PyCapsule_GetPointer(capsule, "capi"))
-#define PyString_FromString(mystring) PyBytes_FromString(mystring)
-#define PyString_FromStringAndSize(buffer, data_ret_size) PyBytes_FromStringAndSize(buffer, data_ret_size)
+#define PyString_FromString(mystring) PyUnicode_FromString(mystring)
+#define PyString_FromStringAndSize(buffer, data_ret_size) PyUnicode_FromStringAndSize(buffer, data_ret_size)
 #define PyInt_AsUnsignedLongMask(integer) PyLong_AsUnsignedLongMask(integer)
 #define PyInt_FromLong(integer) PyLong_FromLong(integer)
 #define PyInt_Check(integer) PyLong_Check(integer)
@@ -398,20 +395,20 @@ library_close (PyObject *self, PyObject *args, PyObject *kwds)
   int        res;
 
   if (!PyArg_ParseTuple (args, "O", &cobj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
 
-  if (!PyCObject_Check (cobj))
+
+  if (!PyCapsule_CheckExact (cobj))
     {
       PyErr_SetString (PyExc_TypeError, "Expected NsLibrary type");
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
 
   res = dl_unload_library (lib);
+
+  Py_DECREF(cobj);
 
   if (res != 0)
     return NULL;
@@ -429,18 +426,16 @@ do_get_library_info (PyObject *self, PyObject *args, PyObject *kwds)
   ns_RESULT       res;
 
   if (!PyArg_ParseTuple (args, "O", &cobj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
+
   
-  if (!PyCObject_Check (cobj))
+  if (!PyCapsule_CheckExact (cobj))
     {
       PyErr_SetString (PyExc_TypeError, "Expected NsLibrary type");
       return NULL;
     }
   
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   res = lib->GetLibraryInfo (&info, sizeof (info));
 
   if (check_result_is_error (res, lib))
@@ -508,18 +503,15 @@ do_open_file (PyObject *self, PyObject *args, PyObject *kwds)
   uint32          file_id;
 
   if (!PyArg_ParseTuple (args, "Os", &cobj, &filename))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
   
-  if (!PyCObject_Check (cobj)) 
+  if (!PyCapsule_CheckExact (cobj)) 
     {
       PyErr_SetString (PyExc_TypeError, "Expected NsLibrary type");
       return NULL;
     }
   
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
 
   res = lib->OpenFile (filename, &file_id);
 
@@ -551,18 +543,16 @@ do_close_file (PyObject *self, PyObject *args, PyObject *kwds)
   uint32          file_id;
 
   if (!PyArg_ParseTuple (args, "OO", &cobj, &iobj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
+
   
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj)) 
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj))
     {
       PyErr_SetString (PyExc_TypeError, "Wrong argument type(s)");
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
 
   res = lib->CloseFile (file_id);
@@ -745,7 +735,7 @@ get_times_for_entity (NsLibrary *lib,
   ns_RESULT  res;
   npy_intp   dims[1];
   double    *data;
-  int        i;
+  uint32     i;
 
   res = ns_OK;
   dims[0] = length;
@@ -797,19 +787,17 @@ do_get_entity_info (PyObject *self, PyObject *args, PyObject *kwds)
   uint32          entity_id;
 
   if (!PyArg_ParseTuple (args, "OOO", &cobj, &iobj, &id_obj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
+
   
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj) ||
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj) ||
       !PyInt_Check (id_obj)) 
     {
       PyErr_SetString (PyExc_TypeError, "Wrong argument type(s)");
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
   entity_id = (uint32) PyInt_AsUnsignedLongMask (id_obj);
 
@@ -872,12 +860,9 @@ do_get_event_data (PyObject *self, PyObject *args, PyObject *kwds)
 
 
   if (!PyArg_ParseTuple (args, "OOOOOO", &cobj, &iobj, &id_obj, &idx_obj, &tp_obj, &sz_obj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
-  
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj) ||
+    return NULL;
+
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj) ||
       !PyInt_Check (id_obj) || !PyInt_Check (idx_obj) ||
       !PyInt_Check (tp_obj) || !PyInt_Check (sz_obj))
     {
@@ -885,7 +870,7 @@ do_get_event_data (PyObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
   entity_id = (uint32) PyInt_AsUnsignedLongMask (id_obj);
   index = (uint32) PyInt_AsUnsignedLongMask (idx_obj);
@@ -957,12 +942,9 @@ do_get_analog_data (PyObject *self, PyObject *args, PyObject *kwds)
   npy_intp        dims[1];
 
   if (!PyArg_ParseTuple (args, "OOOOO", &cobj, &iobj, &id_obj, &idx_obj, &sz_obj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
 
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj) ||
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj) ||
       !PyInt_Check (id_obj) || !PyInt_Check (idx_obj) ||
       !PyInt_Check (sz_obj))
     {
@@ -970,7 +952,7 @@ do_get_analog_data (PyObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
   entity_id = (uint32) PyInt_AsUnsignedLongMask (id_obj);
   index = (uint32) PyInt_AsUnsignedLongMask (idx_obj);
@@ -1046,12 +1028,10 @@ do_get_segment_data (PyObject *self, PyObject *args, PyObject *kwds)
   double          time_stamp;
 
   if (!PyArg_ParseTuple (args, "OOOOOO", &cobj, &iobj, &id_obj, &idx_obj, &src_obj, &sz_obj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
 
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj) ||
+
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj) ||
       !PyInt_Check (id_obj) || !PyInt_Check (idx_obj) ||
       !PyInt_Check (sz_obj) || !PyInt_Check (src_obj))
     {
@@ -1059,7 +1039,7 @@ do_get_segment_data (PyObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
   entity_id = (uint32) PyInt_AsUnsignedLongMask (id_obj);
   index = (uint32) PyInt_AsUnsignedLongMask (idx_obj);
@@ -1123,12 +1103,10 @@ do_get_neural_data (PyObject *self, PyObject *args, PyObject *kwds)
   npy_intp        dims[1];
 
   if (!PyArg_ParseTuple (args, "OOOOO", &cobj, &iobj, &id_obj, &idx_obj, &sz_obj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
 
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj) ||
+
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj) ||
       !PyInt_Check (id_obj) || !PyInt_Check (idx_obj) ||
       !PyInt_Check (sz_obj))
     {
@@ -1136,7 +1114,7 @@ do_get_neural_data (PyObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
   entity_id = (uint32) PyInt_AsUnsignedLongMask (id_obj);
   index = (uint32) PyInt_AsUnsignedLongMask (idx_obj);
@@ -1186,12 +1164,10 @@ do_get_index_by_time(PyObject *self, PyObject *args, PyObject *kwds)
 
 
   if (!PyArg_ParseTuple (args, "OOOOO", &cobj, &iobj, &id_obj, &tp_obj, &fl_obj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
 
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj) ||
+
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj) ||
       !PyInt_Check (id_obj) || !PyFloat_Check (tp_obj) ||
       !PyInt_Check (fl_obj))
     {
@@ -1199,7 +1175,7 @@ do_get_index_by_time(PyObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
   entity_id = (uint32) PyInt_AsUnsignedLongMask (id_obj);
   timepoint = PyFloat_AsDouble (tp_obj);
@@ -1230,19 +1206,17 @@ do_get_time_by_index (PyObject *self, PyObject *args, PyObject *kwds)
   ns_RESULT       res;
 
   if (!PyArg_ParseTuple (args, "OOOO", &cobj, &iobj, &id_obj, &idx_obj))
-    {
-      PyErr_SetString (PyExc_StandardError, "Could not parse arguments");
-      return NULL;
-    }
+    return NULL;
 
-  if (!PyCObject_Check (cobj) || !PyInt_Check (iobj) ||
+
+  if (!PyCapsule_CheckExact (cobj) || !PyInt_Check (iobj) ||
       !PyInt_Check (id_obj) || !PyInt_Check (idx_obj))
     {
       PyErr_SetString (PyExc_TypeError, "Wrong argument type(s)");
       return NULL;
     }
 
-  lib = PyCObject_AsVoidPtr (cobj);
+  lib = PyCapsule_GetPointer (cobj, "capi");
   file_id = (uint32) PyInt_AsUnsignedLongMask (iobj);
   entity_id = (uint32) PyInt_AsUnsignedLongMask (id_obj);
   index = (uint32) PyInt_AsUnsignedLongMask (idx_obj);
@@ -1294,40 +1268,52 @@ static PyMethodDef NativeMethods[] = {
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
-PyMODINIT_FUNC
-init_capi(void)
-{
-  PyObject *module;
-/************* python3 module import*********/ 
-  #if PY_MAJOR_VERSION >= 3
-  static struct PyModuleDef moduledef = {
+#if PY_MAJOR_VERSION >= 3
+static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
-        "themodulename",     /* m_name */
-        "This is a module",  /* m_doc */
+        "neuroshare._capi",     /* m_name */
+        "neuroshare native (C) functions",  /* m_doc */
         -1,                  /* m_size */
         NativeMethods,       /* m_methods */
         NULL,                /* m_reload */
         NULL,                /* m_traverse */
         NULL,                /* m_clear */
         NULL,                /* m_free */
-    };
-    
-    module = PyModule_Create(&moduledef);
-    return module;
-  #else
-    module = Py_InitModule ("neuroshare._capi", NativeMethods);
-  #endif
+};
+#define INIT_RETURN_ERROR NULL
+#else
+#define INIT_RETURN_ERROR
+#endif
+
+
+PyMODINIT_FUNC
+init_capi(void)
+{
+  PyObject *module;
+
+#if PY_MAJOR_VERSION >= 3
+  module = PyModule_Create (&moduledef);
+#else
+  module = Py_InitModule ("neuroshare._capi", NativeMethods);
+#endif
+
+
   if (module == NULL)
-    return NULL;
-  
+    return INIT_RETURN_ERROR;
+
+  import_array ();
+
+#if PY_MAJOR_VERSION < 3
   PyModule_AddStringConstant (module,
 			      "__doc__",
 			      "neuroshare native (C) functions");
-  
-  import_array ();
-  
+#endif
+
   PgError = PyErr_NewException ("_capi.error", NULL, NULL);
   Py_INCREF (PgError);
   PyModule_AddObject (module, "error", PgError);
-  Py_RETURN_NONE;
+
+#if PY_MAJOR_VERSION >= 3
+  return module;
+#endif
 }
